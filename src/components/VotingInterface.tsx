@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 interface VotingInterfaceProps {
   poll: Poll
   votes: Vote[]
-  onVote: (vote: Vote) => void
+  onVote: (vote: Vote) => Promise<void>
 }
 
 const VotingInterface = ({ poll, votes, onVote }: VotingInterfaceProps) => {
@@ -78,7 +78,7 @@ const VotingInterface = ({ poll, votes, onVote }: VotingInterfaceProps) => {
         voterFingerprint
       }
 
-      onVote(vote)
+      await onVote(vote)
       setHasVoted(true)
       
       // Small delay for better UX

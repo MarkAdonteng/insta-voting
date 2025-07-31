@@ -7,7 +7,7 @@ interface PollCreatorProps {
     options: string[]
     allowMultipleChoice: boolean
     deadline?: Date
-  }) => void
+  }) => Promise<void>
 }
 
 const PollCreator = ({ onCreatePoll }: PollCreatorProps) => {
@@ -18,6 +18,7 @@ const PollCreator = ({ onCreatePoll }: PollCreatorProps) => {
   const [hasDeadline, setHasDeadline] = useState(false)
   const [deadline, setDeadline] = useState('')
   const [errors, setErrors] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const addOption = () => {
     setOptions([...options, ''])
@@ -63,7 +64,7 @@ const PollCreator = ({ onCreatePoll }: PollCreatorProps) => {
     return newErrors.length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!validateForm()) {
@@ -72,22 +73,30 @@ const PollCreator = ({ onCreatePoll }: PollCreatorProps) => {
 
     const validOptions = options.filter(opt => opt.trim())
     
-    onCreatePoll({
-      title: title.trim(),
-      question: question.trim(),
-      options: validOptions,
-      allowMultipleChoice,
-      deadline: hasDeadline && deadline ? new Date(deadline) : undefined
-    })
+    setIsSubmitting(true)
+    try {
+      await onCreatePoll({
+        title: title.trim(),
+        question: question.trim(),
+        options: validOptions,
+        allowMultipleChoice,
+        deadline: hasDeadline && deadline ? new Date(deadline) : undefined
+      })
 
-    // Reset form
-    setTitle('')
-    setQuestion('')
-    setOptions(['', ''])
-    setAllowMultipleChoice(false)
-    setHasDeadline(false)
-    setDeadline('')
-    setErrors([])
+      // Reset form on success
+      setTitle('')
+      setQuestion('')
+      setOptions(['', ''])
+      setAllowMultipleChoice(false)
+      setHasDeadline(false)
+      setDeadline('')
+      setErrors([])
+    } catch (error) {
+      console.error('Error creating poll:', error)
+      setErrors(['Failed to create poll. Please try again.'])
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -227,9 +236,10 @@ const PollCreator = ({ onCreatePoll }: PollCreatorProps) => {
         <div className="pt-4">
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium"
+            disabled={isSubmitting}
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Create Poll
+            {isSubmitting ? 'Creating Poll...' : 'Create Poll'}
           </button>
         </div>
       </form>

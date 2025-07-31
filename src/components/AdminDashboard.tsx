@@ -8,8 +8,8 @@ import { v4 as uuidv4 } from 'uuid'
 interface AdminDashboardProps {
   polls: Poll[]
   votes: Vote[]
-  onAddPoll: (poll: Poll) => void
-  onUpdatePoll: (pollId: string, updates: Partial<Poll>) => void
+  onAddPoll: (poll: Poll) => Promise<void>
+  onUpdatePoll: (pollId: string, updates: Partial<Poll>) => Promise<void>
 }
 
 type ActiveTab = 'create' | 'manage' | 'results'
@@ -17,7 +17,7 @@ type ActiveTab = 'create' | 'manage' | 'results'
 const AdminDashboard = ({ polls, votes, onAddPoll, onUpdatePoll }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('create')
 
-  const handleCreatePoll = (pollData: {
+  const handleCreatePoll = async (pollData: {
     title: string
     question: string
     options: string[]
@@ -35,13 +35,13 @@ const AdminDashboard = ({ polls, votes, onAddPoll, onUpdatePoll }: AdminDashboar
       question: pollData.question,
       options: pollOptions,
       allowMultipleChoice: pollData.allowMultipleChoice,
-      isActive: false,
+      isActive: true,
       isCompleted: false,
       deadline: pollData.deadline,
       createdAt: new Date()
     }
 
-    onAddPoll(newPoll)
+    await onAddPoll(newPoll)
     setActiveTab('manage')
   }
 

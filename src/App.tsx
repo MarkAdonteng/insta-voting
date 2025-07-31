@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, useParams, Navigate } from 'react-router-dom'
+import { collection, addDoc, onSnapshot, updateDoc, doc, query, orderBy, QuerySnapshot } from 'firebase/firestore'
+import type { DocumentData } from 'firebase/firestore'
+import { db } from './firebase'
 import AdminDashboard from './components/AdminDashboard'
 import VotingInterface from './components/VotingInterface'
 import type { Poll, Vote } from './types.ts'
@@ -8,50 +11,87 @@ import './App.css'
 function App() {
   const [polls, setPolls] = useState<Poll[]>([])
   const [votes, setVotes] = useState<Vote[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Load data from localStorage on app start
+  // Set up real-time listeners for polls and votes
   useEffect(() => {
-    const savedPolls = localStorage.getItem('voting-app-polls')
-    const savedVotes = localStorage.getItem('voting-app-votes')
-    
-    if (savedPolls) {
-      setPolls(JSON.parse(savedPolls))
-    }
-    if (savedVotes) {
-      setVotes(JSON.parse(savedVotes))
+    // Listen to polls collection
+    const pollsQuery = query(collection(db, 'polls'), orderBy('createdAt', 'desc'))
+    const unsubscribePolls = onSnapshot(pollsQuery, (snapshot: QuerySnapshot<DocumentData>) => {
+      const pollsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Poll[]
+      setPolls(pollsData)
+      setLoading(false)
+    })
+
+    // Listen to votes collection
+    const votesQuery = query(collection(db, 'votes'), orderBy('timestamp', 'desc'))
+    const unsubscribeVotes = onSnapshot(votesQuery, (snapshot: QuerySnapshot<DocumentData>) => {
+      const votesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Vote[]
+      setVotes(votesData)
+    })
+
+    // Cleanup listeners on unmount
+    return () => {
+      unsubscribePolls()
+      unsubscribeVotes()
     }
   }, [])
 
-  // Save data to localStorage whenever polls or votes change
-  useEffect(() => {
-    localStorage.setItem('voting-app-polls', JSON.stringify(polls))
-  }, [polls])
-
-  useEffect(() => {
-    localStorage.setItem('voting-app-votes', JSON.stringify(votes))
-  }, [votes])
-
-  const addPoll = (poll: Poll) => {
-    setPolls(prev => [...prev, poll])
+  const addPoll = async (poll: Poll) => {
+    try {
+      await addDoc(collection(db, 'polls'), {
+        ...poll,
+        createdAt: new Date()
+      })
+    } catch (error) {
+      console.error('Error adding poll:', error)
+    }
   }
 
-  const updatePoll = (pollId: string, updates: Partial<Poll>) => {
-    setPolls(prev => prev.map(poll => 
-      poll.id === pollId ? { ...poll, ...updates } : poll
-    ))
+  const updatePoll = async (pollId: string, updates: Partial<Poll>) => {
+    try {
+      const pollRef = doc(db, 'polls', pollId)
+      await updateDoc(pollRef, updates)
+    } catch (error) {
+      console.error('Error updating poll:', error)
+    }
   }
 
-  const addVote = (vote: Vote) => {
-    setVotes(prev => [...prev, vote])
+  const addVote = async (vote: Vote) => {
+    try {
+      await addDoc(collection(db, 'votes'), {
+        ...vote,
+        timestamp: new Date()
+      })
+    } catch (error) {
+      console.error('Error adding vote:', error)
+    }
   }
 
   const VotingPage = () => {
     const { pollId } = useParams<{ pollId: string }>()
     const poll = polls.find(p => p.id === pollId)
     
+    if (loading) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading poll...</p>
+          </div>
+        </div>
+      )
+    }
+    
     if (!poll) {
       return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-800 mb-4">Poll Not Found</h1>
             <p className="text-gray-600">The poll you're looking for doesn't exist or has been removed.</p>
